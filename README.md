@@ -1,0 +1,2 @@
+# reversi
+create reversi game
