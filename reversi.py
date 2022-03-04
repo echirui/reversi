@@ -10,13 +10,14 @@ B = 1    # 2bit 0b01
 W = 2    # 2bit 0b10
 MASK = 0b11 # and enable flag 2bit 0b11
 
-# R, D, L, U, RU, RD, LD, LU
+# [R, D, L, U, RU, RD, LD, LU]
 list_direct_x = [1, 0, -1, 0, 1, 1, -1, -1]
 list_direct_y = [0, 1, 0, -1, -1, 1, 1, -1]
 list_direct = [[x,y] for x, y in zip(list_direct_x, list_direct_y)]
 
 # check 0x0 0x1 ... 7x6 7x7
 re_input_check = re.compile(r"""^[0-7][0-7]$""")
+
 
 class Reversi:
     """
@@ -37,31 +38,35 @@ class Reversi:
         self.board[3][4] = 1
         self.board[3][3] = 2
         self.board[4][4] = 2
-        self.next = B # first turn (1:black 2:white)
+        self.player = B # first turn (1:black 2:white)
         self.input_method = input
-        self.input_args = self.inputs[self.next]
+        self.input_args = self.inputs[self.player]
         self.kifu = list()
 
     @staticmethod
     def is_inside(x, y):
         return 0 <= x <= 7 and 0 <= y <= 7
 
-    def is_empty(self, x, y):
-        return not (self.board[x][y] == B or self.board[x][y] == W)
+    @staticmethod
+    def is_empty(x, y, board):
+        return not (board[x][y] == B or board[x][y] == W)
 
     def check(self, x, y, dx, dy):
         length = 0
+        nx, ny = x, y
         for i in range(1, GRIDS):
-            nx = x + i*dx
-            ny = y + i*dy
-            if not self.is_inside(nx, ny):
+            nx = nx + dx
+            ny = ny + dy
+            if not is_inside(nx, ny):
                 return 0
-            if self.is_empty(nx, ny):
+            if is_empty(nx, ny, self.board):
                 return 0
-            if self.board[nx][ny] != self.next:
+            if self.board[nx][ny] == (self.player^MASK):
                 length += 1
-            elif self.board[nx][ny] == self.next:
+            elif self.board[nx][ny] == self.player:
                 return length
+        else:
+            return 0
 
     def flip(self, x, y, dx, dy, length):
         for i in range(1,length+1):
@@ -69,8 +74,8 @@ class Reversi:
         return
 
     def swap(self, x, y):
-        self.num_stones[self.next] += 1
-        self.num_stones[self.next^MASK] -= 1
+        self.num_stones[self.player] += 1
+        self.num_stones[self.player^MASK] -= 1
         self.board[x][y] = self.board[x][y] ^ MASK
         return
 
@@ -81,22 +86,22 @@ class Reversi:
         if not self.is_inside(x, y):
             self.message(-1, "x or y is out of range")
             return False
-        if not self.is_empty(x, y):
+        if not self.is_empty(x, y, self.board):
             self.message(-1, "already stone exists")
             return False
         if not [x, y] in self.suggest:
             self.message(2, f'Error incorrect move: {x},{y}')
             return False
         # put stone
-        self.board[x][y] = self.next
-        self.num_stones[self.next] += 1
+        self.board[x][y] = self.player
+        self.num_stones[self.player] += 1
         return True
-    
+
     def next_turn(self):
         """
         """
         # 01 xor 11 = 10, 10 xor 11 = 01
-        self.next = self.next ^ MASK
+        self.player = self.player ^ MASK
         return
 
     def end(self):
@@ -114,7 +119,7 @@ class Reversi:
         return False
 
     def check_pass(self):
-        not_empty__ = [[i, j] for i in range(GRIDS) for j in range(GRIDS) if self.is_empty(i, j)]
+        not_empty__ = [[i, j] for i in range(GRIDS) for j in range(GRIDS) if is_empty(i, j, self.board)]
         for x, y in not_empty__:
             for dx, dy in list_direct:
                 if self.check(x, y, dx, dy) != 0:
@@ -135,7 +140,7 @@ class Reversi:
         move = ""
         for _ in range(10):
             try:
-                move = self.input_method(self.inputs[self.next])
+                move = self.input_method(self.inputs[self.player])
                 if not re_input_check.match(move):
                     self.message(-1, f'Error incorrect input: {move}')
                     continue
@@ -143,6 +148,7 @@ class Reversi:
                     break
             except:
                 print('Error incorrect input')
+                print('Repeat game({})'.format(','.join(self.kifu)))
                 exit()
         x, y = [int(i) for i in move]
         return [x, y]
@@ -156,10 +162,13 @@ class Reversi:
         elif s[B] < s[W]:
             return "White won!"
 
+    def convert_kifu(self):
+        pass
+
     def print_score(self):
         print(f"Score[B:{self.num_stones[B]}, W:{self.num_stones[W]}]")
         return
-    
+
     def score(self):
         return f"Score[B:{self.num_stones[B]}, W:{self.num_stones[W]}]\n"
 
@@ -180,11 +189,9 @@ class Reversi:
         # header
         self.ui = self.score()
         self.ui += '    ' + ' '.join([str(x) for x in range(GRIDS)]) + '\n'
-        #print('    ' + ' '.join([str(x) for x in range(GRIDS)]))
         # board
         for i in range(GRIDS):
             self.ui += str(i) + '0 ' + ''.join(map(rep, self.board[i])) + '\n'
-            #print(str(i) + '0 ' + ''.join(map(rep, self.board[i])))
         print(self.ui[:-1])
 
     def message(self, id=0, message="error message"):
@@ -192,9 +199,14 @@ class Reversi:
             print (f"{message}, Code[{id}]")
         else:
             print (f"{message}")
-    
         pass
-    
+
+
+# static fucntion
+is_inside = Reversi.is_inside
+is_empty = Reversi.is_empty
+
+
 def game(test_input=None):
     ''' start Reversi
     '''
@@ -215,7 +227,7 @@ def game(test_input=None):
     if test_input:
         pre_input = test_input.split(',')
         pre_input = [[x[0], x[1]] for x in pre_input]
-    
+
     # main loop
     while not end():
         if check_pass():
@@ -232,7 +244,7 @@ def game(test_input=None):
             x, y = input_move()
         if not put(x, y):
             continue
-        rv.kifu.append((x,y,))
+        rv.kifu.append(str(x)+str(y))
         clr_suggest()
         # check 8 direction. and turn stone up side down.
         for dx, dy in list_direct:
@@ -243,7 +255,7 @@ def game(test_input=None):
     else:
         output()
         msg(0, f"{rv.win_reason()} Final Score Black:{rv.num_stones[B]} White:{rv.num_stones[W]}")
-        #print(rv.kifu)
+        #print('Repeat game(\'{}\')'.format(','.join(rv.kifu)))
 
 def test_game(test=None):
     '''
@@ -271,26 +283,22 @@ def test_game(test=None):
     60  . . . . ○ . . .
     70  . . . . . . . .
     Black won! Final Score Black:13 White:0
-    '''
-    '''
-    >>> game('45,35,26,36,46,17,32,53,63,62,61,71,16,15,04,22,12,11,10,00,23,02,01,20,21,51,60,31,30,40,41,03,06,05,13,14,24,25,07,50,27,70,55,37,47,57,67,77,56,66,76,73,42,72,54')
-    Score[B:28, W:31]
+    >>> game('45,35,26,36,46,17,32,53,63,62,61,71,16,15,04,22,12,11,10,00,23,02,01,20,21,51,60,31,30,40,41,03,06,05,13,14,24,25,07,50,27,70,55,37,47,57,67,56,66,76,42,72,54,73,77,65,64,75,74')
+    Score[B:26, W:37]
         0 1 2 3 4 5 6 7
     00  ● ○ ● ● ● ● ○ ○
     10  ● ● ● ● ● ○ ○ ○
-    20  ● ● ● ● ○ ○ ○ ○
-    30  ● ○ ● ○ ○ ● ○ ○
-    40  ● ● ○ ○ ○ ○ ○ ○
-    50  ● ● . ● ○ ○ ○ ○
-    60  ● ● ● ● . . ○ ○
-    70  ● ● ● ● . . ○ ●
-    White won! Final Score Black:28 White:31
+    20  ● ● ● ● ○ ○ ● ○
+    30  ● ● ● ○ ● ● ○ ○
+    40  ● ● ● ● ○ ● ○ ○
+    50  ● ● . ● ○ ● ○ ○
+    60  ● ● ● ● ○ ○ ○ ○
+    70  ● ● ● ● ○ ○ ○ ○
+    White won! Final Score Black:26 White:37
     '''
     pass
-        
+
 if __name__ == '__main__':
-    if len(sys.argv) >= 2:
-        import doctest
-        doctest.run_docstring_examples(test_game, globals())
-    else:
+        # test exec commandline
+        # $ python3 -m doctest reversi.py -v
         game()
