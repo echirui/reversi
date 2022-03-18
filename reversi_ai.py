@@ -7,15 +7,13 @@ import random
 from copy import copy
 
 class AIPlayer(reversi.Player):
-    rv = None
-    def __init__(self, color, board):
-        self.rv = reversi.Reversi(copy(board))
+    def __init__(self, color):
+        self.rv = reversi.Reversi(color)
         super().__init__(color)
 
     def input_board(self, board):
-        self.rv = reversi.Reversi(copy(board))
+        self.rv = reversi.Reversi(board)
         self.rv.player = self.color
-        return super().input_board(board)
 
     def output_board(self):
         self.rv.clear_suggest()
@@ -24,28 +22,25 @@ class AIPlayer(reversi.Player):
 
 
 class AIWrapper(reversi.Player):
-    rv = None
-    def __init__(self, color, board):
+    def __init__(self, color):
         self.rv = reversi.Reversi(color)
-        self.rv.board = board
-        self.ai = subprocess.Popen('env python3 ai.py'.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        self.ps = subprocess.Popen('env python3 ai.py'.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         super().__init__(color)
 
     def __del__(self):
-        self.ai.kill()
+        self.ps.kill()
 
-    def input_ai_board(self, board):
+    def input_board(self, board):
         stdin = str(self.rv.player) + '\n'
         for i in range(GRIDS):
             stdin += ' '.join(map(str, board[i])) + '\n'
         #print(stdin)
-        self.ai.stdin.write(stdin.encode('utf-8'))
-        self.ai.stdin.flush()
+        self.ps.stdin.write(stdin.encode('utf-8'))
+        self.ps.stdin.flush()
         return super().input_board(board)
 
-    def output_ai_board(self):
-        x, y = [int(i) for i in self.ai.stdout.readline().decode().strip().split()]
-        return x, y
+    def output_board(self):
+        return [int(i) for i in self.ps.stdout.readline().strip().split()]
 
 
 if __name__ == '__main__':

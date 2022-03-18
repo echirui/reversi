@@ -10,7 +10,7 @@ B = 1    # 2bit 0b01
 W = 2    # 2bit 0b10
 MASK = 0b11 # and enable flag 2bit 0b11
 
-CONVERT_DICT = {'a':'0','b':'1','c':'2','d':'3','e':'4','f':'5','g':'6','h':'7'}
+CONVERT_DICT = {'a':0,'b':1,'c':2,'d':3,'e':4,'f':5,'g':6,'h':7}
 # [R, D, L, U, RU, RD, LD, LU]
 list_direct_x = [1, 0, -1, 0, 1, 1, -1, -1]
 list_direct_y = [0, 1, 0, -1, -1, 1, 1, -1]
@@ -22,11 +22,11 @@ re_input_check = re.compile(r"""^[0-7][0-7]$""")
 # check a1 a2 ... h7 h8
 re_input_sd_check = re.compile(r"""^[a-h][1-8]$""")
 
+inputs = {1:"Black:", 2:"White:"}
 
 class Player:
     """reversi player. AI or Person"""
     color = ""
-    inputs = [None, "Black:", "White:"]
 
     def __init__(self, color):
         # B(1) or W(2)
@@ -42,8 +42,9 @@ class Player:
 
     def output_board(self):
         for _ in range(10):
+            # repeat 10 times. exit() if over
             try:
-                move = input(self.inputs[self.color])
+                move = input(inputs[self.color])
                 if move in ['exit','q','quit']:
                     break
                 if not re_input_check.match(move):
@@ -54,12 +55,11 @@ class Player:
             except:
                 print('Error incorrect input')
                 exit()
-                #print('Repeat game({})'.format(','.join(self.kifu)))
         else:
+            # repeat over 10 times error.
             exit()
 
-        x, y = [int(i) for i in move]
-        return [x, y]
+        return [int(i) for i in move]
 
 
 class Reversi:
@@ -67,7 +67,7 @@ class Reversi:
     """
     #properties
     suggest = list()
-    pass_flag = False
+    pass_flag = 0
     ui = list()
 
     def __init__(self, board=None):
@@ -124,13 +124,13 @@ class Reversi:
         """
         # check illegal move
         if not self.is_inside(x, y):
-            self.message(-1, "x or y is out of range")
+            self.message("x or y is out of range", -1)
             return False
         if not self.is_empty(x, y, self.board):
-            self.message(-1, f"already stone exists: {x},{y}")
+            self.message(f"already stone exists: {x},{y}", -1)
             return False
         if not [x, y] in self.suggest:
-            self.message(2, f'Error incorrect move: {x},{y}')
+            self.message(f'Error incorrect move: {x},{y}', 2)
             return False
         # put stone
         self.board[x][y] = self.player
@@ -186,20 +186,21 @@ class Reversi:
         self.suggest = list()
         return
 
-    def win_reason(self):
-        s = self.num_stones
-        if s[B] == s[W]:
-            return "Draw!"
-        elif s[B] > s[W]:
+    @staticmethod
+    def win_reason(s):
+        if s[B] > s[W]:
             return "Black won!"
         elif s[B] < s[W]:
             return "White won!"
+        else:
+            #s[B] == s[W]:
+            return "Draw!"
 
     @staticmethod
     def convert_kifu(ki):
         list_return = list()
         for i in range(0, len(ki), 2):
-            list_return.append([CONVERT_DICT[ki[i]], str(int(ki[i+1])-1)])
+            list_return.append([CONVERT_DICT[ki[i]], int(ki[i+1])-1])
         return list_return
 
     def score(self):
@@ -225,17 +226,19 @@ class Reversi:
         # board
         for i in range(GRIDS):
             self.ui.append(str(i) + '0 ' + ''.join(map(rep, self.board[i])))
-        #print('\n'.join(self.ui))
         print(*self.ui, sep='\n')
 
-    def message(self, code=0, message="error message"):
+    @staticmethod
+    def message(message="Error message",code=0):
         if code:
-            print (f"{message},{code = }")
+            print(f"{message} {code=}")
         else:
-            print (f"{message}")
+            print(message)
 
 
 # static fucntion
 is_inside = Reversi.is_inside
 is_empty = Reversi.is_empty
 convert_kifu = Reversi.convert_kifu
+message = Reversi.message
+win_reason = Reversi.win_reason
